@@ -7,7 +7,9 @@ mgVibTest is GUI vibration analysis tool based on MATLAB. The application shows 
 * Open audio files
 * Save processed data to audio file
 * Save frequency domain data to .mat file
+* Basic time domain data status (peak, rms, peak-to-peak, peak-rms ratio)
 * Plot data
-* Window function (Hanning, Gaussian)
+* Window functions
 * Filter (low pass, high pass, band pass)
 * FFT
+* FFT peak finding
