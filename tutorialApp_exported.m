@@ -30,7 +30,10 @@ classdef tutorialApp_exported < matlab.apps.AppBase
         WindowFunctionMenu              matlab.ui.container.Menu
         WindowHannMenu                  matlab.ui.container.Menu
         WindowGaussianMenu              matlab.ui.container.Menu
-        DivideandAveragingTBDMenu       matlab.ui.container.Menu
+        WindowBlakmanMenu               matlab.ui.container.Menu
+        WindowHammingMenu               matlab.ui.container.Menu
+        WindowFlattopMenu               matlab.ui.container.Menu
+        AveragingMenu                   matlab.ui.container.Menu
         FFTAxes                         matlab.ui.control.UIAxes
         Label                           matlab.ui.control.Label
         DataAxes                        matlab.ui.control.UIAxes
@@ -61,6 +64,10 @@ classdef tutorialApp_exported < matlab.apps.AppBase
         % audioFileName: ÿÿÿ ÿÿ ÿÿ
         % data_t: ÿÿÿ raw data
         % dataProcessed_t: ÿÿÿ ÿÿ ÿÿÿ (ÿÿÿ ÿÿÿ ÿÿ)
+        % rms_t: rmsÿ
+        % pk_t: ÿÿÿ
+        % pk2pk_t: ÿÿÿ - ÿÿÿ
+        % pk2rms_t: ÿÿÿÿ rmsÿÿ ÿÿ
         % data_f: FFTÿ ÿÿÿ ÿÿÿÿ ÿÿÿ (complex)
         % dataAbs_f: FFTÿ ÿÿÿ ÿÿÿÿ ÿÿÿ (absolute value)
         % Fs: ÿÿÿ ÿÿÿ
@@ -71,12 +78,22 @@ classdef tutorialApp_exported < matlab.apps.AppBase
         audioFileName
         data_t
         dataProcessed_t
+        rms_t
+        pk_t
+        pk2pk_t
+        pk2rms_t
+        crest_t
+        kurtosis_t
         data_f
         dataAbs_f
+        pk_f
+        pkfreq_f
         Fs
         L
         f
         t
+        f_processed
+        t_processed
     end
     
     properties (Access = public)
@@ -101,13 +118,28 @@ classdef tutorialApp_exported < matlab.apps.AppBase
             app.f = app.Fs * (0:(app.L - 1)) / app.L;
             app.f = reshape(app.f, [], 1);
             
+            app.pk_t = max(app.data_t);
+            app.pk2pk_t = peak2peak(app.data_t);
+            
+            app.rms_t = rms(app.data_t);
+            app.pk2rms_t = peak2rms(app.data_t);
+            
+            
             dispstr = sprintf('%s%s\nfile name: %s, sampling rate: %s, file length: %s', ...
                 string(datetime), " File loaded", ...
                 string(app.audioFileName), string(app.Fs), string(size(app.data_t)));
             app.ConsoleTextArea.Value = vertcat(cellstr(dispstr), ...
                 app.ConsoleTextArea.Value);
+            dispstr = sprintf('%s: %f\n%s: %f\n%s: %f\n%s: %f\n', ...
+                'peak', app.pk_t, ...
+                'rms', app.rms_t, ...
+                'peak to peak', app.pk2pk_t, ...
+                'ratio of the peak and rms', app.pk2rms_t);
+            app.ConsoleTextArea.Value = vertcat(cellstr(dispstr), ...
+                app.ConsoleTextArea.Value);
             
             plot(app.DataAxes, app.t, app.dataProcessed_t, "-k");
+            
         end
         
         %% filterLowPass: Low pass filter ÿÿ
@@ -308,12 +340,20 @@ classdef tutorialApp_exported < matlab.apps.AppBase
                 app.data_f = fft(app.dataProcessed_t);
                 app.data_f = reshape(app.data_f, [], 1);
                 app.dataAbs_f = abs(app.data_f);
-                plot(app.FFTAxes, app.f, app.dataAbs_f, '-k');
+                app.pk_f = max(app.dataAbs_f);
+                peakind = find(app.dataAbs_f == app.pk_f);
+                peakind = peakind(1);
+                app.pkfreq_f = app.f(peakind);
+                plot(app.FFTAxes, app.f, app.dataAbs_f, '-k', app.pkfreq_f, app.pk_f, 'r*');
             catch ME
                 errordlg(ME.identifier, 'FFT Analysis Error');
             end
             dispstr = sprintf('%s%s\n\n', ...
                 string(datetime), " FFT Analysis Completed");
+            app.ConsoleTextArea.Value = vertcat(cellstr(dispstr), ...
+                app.ConsoleTextArea.Value);
+            dispstr = sprintf('%s: (%f, %f)', ...
+                '(max frequency, amplitude) = ', app.pkfreq_f, app.pk_f);
             app.ConsoleTextArea.Value = vertcat(cellstr(dispstr), ...
                 app.ConsoleTextArea.Value);
         end
@@ -344,6 +384,51 @@ classdef tutorialApp_exported < matlab.apps.AppBase
             end
             dispstr = sprintf('%s%s\n\n', ...
                 string(datetime), " Gaussian Window Function is applied");
+            app.ConsoleTextArea.Value = vertcat(cellstr(dispstr), ...
+                app.ConsoleTextArea.Value);
+        end
+
+        % Menu selected function: WindowHammingMenu
+        function WindowHammingMenuSelected(app, event)
+            try
+                w = hamming(app.L);
+                app.dataProcessed_t = app.dataProcessed_t .* w;
+                plot(app.DataProcessedAxes, app.t, app.dataProcessed_t, '-k');
+            catch ME
+                errordlg(ME.identifier, 'Window Function Error');
+            end
+            dispstr = sprintf('%s%s\n\n', ...
+                string(datetime), " Hamming Window Function is applied");
+            app.ConsoleTextArea.Value = vertcat(cellstr(dispstr), ...
+                app.ConsoleTextArea.Value);
+        end
+
+        % Menu selected function: WindowBlakmanMenu
+        function WindowBlakmanMenuSelected(app, event)
+            try
+                w = blackman(app.L);
+                app.dataProcessed_t = app.dataProcessed_t .* w;
+                plot(app.DataProcessedAxes, app.t, app.dataProcessed_t, '-k');
+            catch ME
+                errordlg(ME.identifier, 'Window Function Error');
+            end
+            dispstr = sprintf('%s%s\n\n', ...
+                string(datetime), " Blackman Window Function is applied");
+            app.ConsoleTextArea.Value = vertcat(cellstr(dispstr), ...
+                app.ConsoleTextArea.Value);
+        end
+
+        % Menu selected function: WindowFlattopMenu
+        function WindowFlattopMenuSelected(app, event)
+            try
+                w = flattopwin(app.L);
+                app.dataProcessed_t = app.dataProcessed_t .* w;
+                plot(app.DataProcessedAxes, app.t, app.dataProcessed_t, '-k');
+            catch ME
+                errordlg(ME.identifier, 'Window Function Error');
+            end
+            dispstr = sprintf('%s%s\n\n', ...
+                string(datetime), " Flat top Window Function is applied");
             app.ConsoleTextArea.Value = vertcat(cellstr(dispstr), ...
                 app.ConsoleTextArea.Value);
         end
@@ -532,16 +617,31 @@ classdef tutorialApp_exported < matlab.apps.AppBase
             % Create WindowHannMenu
             app.WindowHannMenu = uimenu(app.WindowFunctionMenu);
             app.WindowHannMenu.MenuSelectedFcn = createCallbackFcn(app, @WindowHannMenuSelected, true);
-            app.WindowHannMenu.Text = 'Hann';
+            app.WindowHannMenu.Text = 'Hannning';
 
             % Create WindowGaussianMenu
             app.WindowGaussianMenu = uimenu(app.WindowFunctionMenu);
             app.WindowGaussianMenu.MenuSelectedFcn = createCallbackFcn(app, @WindowGaussianMenuSelected, true);
             app.WindowGaussianMenu.Text = 'Gaussian';
 
-            % Create DivideandAveragingTBDMenu
-            app.DivideandAveragingTBDMenu = uimenu(app.ToolsMenu);
-            app.DivideandAveragingTBDMenu.Text = 'Divide and Averaging (TBD)';
+            % Create WindowBlakmanMenu
+            app.WindowBlakmanMenu = uimenu(app.WindowFunctionMenu);
+            app.WindowBlakmanMenu.MenuSelectedFcn = createCallbackFcn(app, @WindowBlakmanMenuSelected, true);
+            app.WindowBlakmanMenu.Text = 'Blackman';
+
+            % Create WindowHammingMenu
+            app.WindowHammingMenu = uimenu(app.WindowFunctionMenu);
+            app.WindowHammingMenu.MenuSelectedFcn = createCallbackFcn(app, @WindowHammingMenuSelected, true);
+            app.WindowHammingMenu.Text = 'Hamming';
+
+            % Create WindowFlattopMenu
+            app.WindowFlattopMenu = uimenu(app.WindowFunctionMenu);
+            app.WindowFlattopMenu.MenuSelectedFcn = createCallbackFcn(app, @WindowFlattopMenuSelected, true);
+            app.WindowFlattopMenu.Text = 'Flat top';
+
+            % Create AveragingMenu
+            app.AveragingMenu = uimenu(app.ToolsMenu);
+            app.AveragingMenu.Text = 'Averaging';
 
             % Create FFTAxes
             app.FFTAxes = uiaxes(app.UIFigure);
